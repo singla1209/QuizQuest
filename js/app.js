@@ -174,16 +174,15 @@ async function listChapters(path){
       return a.name.localeCompare(b.name, undefined, { numeric: true, sensitivity: 'base' });
     });
   } else {
-    files.sort((a,b)=>{
-      const na = parseInt((a.name.match(/\\d+/)||[9999])[0],10);
-      const nb = parseInt((b.name.match(/\\d+/)||[9999])[0],10);
-      if(na !== nb) return na - nb;
-      return a.name.localeCompare(b.name);
-    });
+    // all other subjects → numeric sort for chapters
+    files.sort((a, b) => 
+      a.name.localeCompare(b.name, undefined, { numeric: true, sensitivity: 'base' })
+    );
   }
 
   return files;
 }
+
 
 
 function shuffle(arr){
