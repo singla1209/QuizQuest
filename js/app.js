@@ -157,15 +157,34 @@ async function listChapters(path){
   const res = await fetch(API_BASE + path, { cache:"no-store" });
   if(!res.ok) throw new Error("GitHub API error");
   const items = await res.json();
-  return items
-    .filter(x => x.type === "file" && x.name.toLowerCase().endsWith(".json"))
-    .sort((a,b)=>{
-      const na = parseInt((a.name.match(/\d+/)||[9999])[0],10);
-      const nb = parseInt((b.name.match(/\d+/)||[9999])[0],10);
+
+  let files = items.filter(x => x.type === "file" && x.name.toLowerCase().endsWith(".json"));
+
+  if(path.includes("sst")){
+    const subjectOrder = ["History", "Geography", "PolSci", "Economics"];
+    files.sort((a, b) => {
+      const subjectA = subjectOrder.find(s => a.name.startsWith(s)) || "";
+      const subjectB = subjectOrder.find(s => b.name.startsWith(s)) || "";
+      const orderA = subjectOrder.indexOf(subjectA);
+      const orderB = subjectOrder.indexOf(subjectB);
+
+      if(orderA !== orderB) return orderA - orderB;
+
+      // same subject → numeric sort
+      return a.name.localeCompare(b.name, undefined, { numeric: true, sensitivity: 'base' });
+    });
+  } else {
+    files.sort((a,b)=>{
+      const na = parseInt((a.name.match(/\\d+/)||[9999])[0],10);
+      const nb = parseInt((b.name.match(/\\d+/)||[9999])[0],10);
       if(na !== nb) return na - nb;
       return a.name.localeCompare(b.name);
     });
+  }
+
+  return files;
 }
+
 
 function shuffle(arr){
   for(let i=arr.length-1;i>0;i--){
