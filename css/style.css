@@ -127,7 +127,6 @@
   left: 10px;
   font-size: 14px;
   color: #fff;  /* White text */
-  background: rgba(0, 0, 0, 0.5); /* Optional background */
-  padding: 5px 10px;
-  border-radius: 5px;
+  padding: 5px 10px;  /* optional, you can remove if not needed */
 }
+
