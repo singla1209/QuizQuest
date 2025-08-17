@@ -121,3 +121,13 @@
       60%{transform:scale(1.1);opacity:1}
       100%{transform:scale(1)}
     }
+.developer-name {
+  position: fixed;
+  bottom: 10px;
+  left: 10px;
+  font-size: 14px;
+  color: #fff;  /* White text */
+  background: rgba(0, 0, 0, 0.5); /* Optional background */
+  padding: 5px 10px;
+  border-radius: 5px;
+}
