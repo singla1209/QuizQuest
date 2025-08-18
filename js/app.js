@@ -3,7 +3,8 @@ import { initializeApp } from "https://www.gstatic.com/firebasejs/12.1.0/firebas
 import {
   getAuth, onAuthStateChanged, signInWithEmailAndPassword,
   createUserWithEmailAndPassword, updateProfile, signOut,
-  GoogleAuthProvider, signInWithPopup
+  GoogleAuthProvider, signInWithPopup, setPersistence,
+  browserLocalPersistence
 } from "https://www.gstatic.com/firebasejs/12.1.0/firebase-auth.js";
 import {
   getFirestore, doc, setDoc, getDoc,
@@ -26,6 +27,14 @@ const auth = getAuth(app);
 const db   = getFirestore(app);
 const googleProvider = new GoogleAuthProvider();
 
+/* ---------- Persistence (important) ---------- */
+try {
+  await setPersistence(auth, browserLocalPersistence);
+  console.log("[Auth] Persistence set to browserLocalPersistence");
+} catch (e) {
+  console.warn("[Auth] Could not set persistence:", e);
+}
+
 /* ---------- Helpers ---------- */
 const $ = (id) => document.getElementById(id);
 function show(id){
@@ -44,16 +53,12 @@ function show(id){
   }
 }
 function msg(text){ $("auth-msg").textContent = text || ""; }
+function dbg(...args){ console.log("[DBG]", ...args); }
 
 /* ---------------- Dynamic config ---------------- */
-/* Raw file base + GitHub API base (same repo layout for all subjects) */
 const RAW_BASE = "https://raw.githubusercontent.com/singla1209/Quizzy/main/";
 const API_BASE = "https://api.github.com/repos/singla1209/Quizzy/contents/";
 
-/* Subjects:
-   - Science & Math keep pretty chapter titles via CHAPTER_TITLES
-   - English, Social Science (SST), Computer Science use the FILENAME only (no mapping)
-*/
 const SUBJECTS = [
   { key:"science", label:"Science",          dynamic:true, path:"Data/science/" },
   { key:"math",    label:"Mathematics",      dynamic:true, path:"Data/math/" },
@@ -103,7 +108,6 @@ const CHAPTER_TITLES = {
 
 /* ---------- Utility ---------- */
 function titleFromFilename(filename){
-  // remove extension → split by _ or - → Title Case
   const base = filename.replace(/\.json$/i,'').replace(/[_\-]+/g,' ').trim();
   return base.replace(/\s+/g,' ')
     .split(' ')
@@ -111,10 +115,6 @@ function titleFromFilename(filename){
     .join(' ');
 }
 
-/* prettifyChapterName:
-   - For science/math: try mapping by chapter number (e.g., "chapter3.json" → "Chapter 3: Metals and Non-metals")
-   - For others (eng/sst/cs): show exactly from filename (e.g., "verbs_and_tenses.json" → "Verbs And Tenses"; "chapter1.json" → "Chapter 1")
-*/
 function prettifyChapterName(filename, subjectKey){
   const isPrettySubject = subjectKey === "science" || subjectKey === "math";
   if(isPrettySubject){
@@ -124,7 +124,6 @@ function prettifyChapterName(filename, subjectKey){
       const map = CHAPTER_TITLES[subjectKey] || {};
       const pretty = map[n];
       if(pretty) return `Chapter ${n}: ${pretty}`;
-      // fallback: "Chapter n: RestOfFileName"
       const rest = filename
         .replace(/\.json$/i,'')
         .replace(/chapter\s*\d+/i,'')
@@ -133,11 +132,8 @@ function prettifyChapterName(filename, subjectKey){
       if(rest) return `Chapter ${n}: ${rest.replace(/\b\w/g,c=>c.toUpperCase())}`;
       return `Chapter ${n}`;
     }
-    // no number → normal title-case
     return titleFromFilename(filename);
   }else{
-    // For eng/sst/cs → strictly from filename (no mapping)
-    // If file is "chapter7.json" show "Chapter 7"; otherwise title-case of name
     const m = filename.match(/chapter\s*(\d+)/i);
     if(m){
       const n = parseInt(m[1],10);
@@ -167,23 +163,16 @@ async function listChapters(path){
       const subjectB = subjectOrder.find(s => b.name.startsWith(s)) || "";
       const orderA = subjectOrder.indexOf(subjectA);
       const orderB = subjectOrder.indexOf(subjectB);
-
       if(orderA !== orderB) return orderA - orderB;
-
-      // same subject → numeric sort
       return a.name.localeCompare(b.name, undefined, { numeric: true, sensitivity: 'base' });
     });
   } else {
-    // all other subjects → numeric sort for chapters
     files.sort((a, b) => 
       a.name.localeCompare(b.name, undefined, { numeric: true, sensitivity: 'base' })
     );
   }
-
   return files;
 }
-
-
 
 function shuffle(arr){
   for(let i=arr.length-1;i>0;i--){
@@ -219,8 +208,15 @@ $("login-btn").onclick = async () => {
   const pass = $("login-pass").value;
   if(!id || !pass){ msg("Enter email/mobile and password."); return; }
   if(!id.includes("@")) id += "@mobile.com";
-  try { await signInWithEmailAndPassword(auth, id, pass); }
-  catch(e){ msg(humanAuthError(e)); }
+  try {
+    dbg("Attempt login with:", id);
+    const cred = await signInWithEmailAndPassword(auth, id, pass);
+    dbg("Login success:", { uid: cred.user.uid, email: cred.user.email });
+    msg(""); // clear any previous message
+  } catch(e){
+    console.error("Login error:", e);
+    msg(humanAuthError(e));
+  }
 };
 
 $("google-btn").onclick = async () => {
@@ -232,7 +228,11 @@ $("google-btn").onclick = async () => {
       emailOrMobile: cred.user.email || "",
       createdAt: serverTimestamp()
     }, { merge:true });
-  } catch(e){ msg(humanAuthError(e)); }
+    dbg("Google sign-in ok:", { uid: cred.user.uid, email: cred.user.email });
+  } catch(e){ 
+    console.error("Google sign-in error:", e);
+    msg(humanAuthError(e)); 
+  }
 };
 
 $("signup-btn").onclick = async () => {
@@ -244,29 +244,46 @@ $("signup-btn").onclick = async () => {
   const rawId = id;
   if(!id.includes("@")) id += "@mobile.com";
   try {
+    // If already logged in as someone else, sign out first to avoid stale session
+    if(auth.currentUser){
+      dbg("Signing out current user before signup:", auth.currentUser.email);
+      await signOut(auth);
+    }
+    dbg("Attempt signup with:", id);
     const cred = await createUserWithEmailAndPassword(auth, id, pass);
     await updateProfile(cred.user, { displayName: name });
     await setDoc(doc(db, "users", cred.user.uid), {
       name, emailOrMobile: rawId, createdAt: serverTimestamp()
     }, { merge:true });
-  } catch(e){ msg(humanAuthError(e)); }
+    dbg("Signup success:", { uid: cred.user.uid, email: cred.user.email });
+    msg(""); // clear info
+  } catch(e){
+    console.error("Signup error:", e);
+    msg(humanAuthError(e));
+  }
 };
 
-$("logout-1").onclick = () => signOut(auth);
-$("logout-2").onclick = () => signOut(auth);
+$("logout-1").onclick = () => signOut(auth).catch(e=>console.error("Logout error:", e));
+$("logout-2").onclick = () => signOut(auth).catch(e=>console.error("Logout error:", e));
 
 onAuthStateChanged(auth, async (user) => {
   if(user){
+    dbg("onAuthStateChanged → logged in as:", user.email, user.uid);
     userId = user.uid;
     userName = user.displayName || "";
     if(!userName){
-      const snap = await getDoc(doc(db,"users",user.uid));
-      userName = (snap.exists() && snap.data().name) ? snap.data().name : (user.email || "User");
+      try {
+        const snap = await getDoc(doc(db,"users",user.uid));
+        userName = (snap.exists() && snap.data().name) ? snap.data().name : (user.email || "User");
+      } catch(e){
+        userName = user.email || "User";
+      }
     }
     $("hello").textContent = `Hi ${userName}!`;
     show("subjects");
     fetchLastFive();
   }else{
+    dbg("onAuthStateChanged → no user");
     userId = null;
     $("login-pass").value = "";
     $("signup-pass").value = "";
@@ -279,7 +296,6 @@ async function startSubject(s){
   if(!auth.currentUser){ show("auth"); return; }
   subject = s;
 
-  // All subjects are dynamic now (eng/sst/cs added)
   $("chapters-title").textContent = `Choose a chapter – ${s.label}`;
   $("chapters-subtitle").textContent = `NCERT Class 10 • Session 2025–26`;
   const container = $("chapter-list");
@@ -310,7 +326,6 @@ async function startSubject(s){
 $("back-to-subjects-2").onclick = () => show("subjects");
 
 async function startChapterQuiz(s, ghPath, prettyTitle){
-  // ghPath like "Data/science/chapter1.json" or "Data/english/verbs_and_tenses.json"
   const url = RAW_BASE + ghPath; // raw github
   currentChapterTitle = prettyTitle; // used in banner
   await beginQuizFromUrl(url, s.label, prettyTitle);
@@ -324,7 +339,6 @@ async function beginQuizFromUrl(url, subjectLabel, chapterTitle){
   $("bar-inner").style.width = "0%";
   $("end-screen").style.display = "none";
 
-  // Banner format exactly as requested
   $("welcome-banner").innerHTML =
     `Welcome <span class="name">${userName}</span> in BrainQuest of <b>‘${subjectLabel}’ : ${chapterTitle.replace(/^Chapter\s*\d+\s*:\s*/i,'')}</b>`;
 
@@ -333,9 +347,11 @@ async function beginQuizFromUrl(url, subjectLabel, chapterTitle){
   try{
     const res = await fetch(url, {cache:"no-store"});
     const raw = await res.json();
-    // Defensive: ensure array of MCQs
     questions = Array.isArray(raw) ? raw.slice() : [];
-  }catch(e){ questions = []; }
+  }catch(e){ 
+    console.error("Fetch questions error:", e);
+    questions = []; 
+  }
 
   if(!questions.length){
     $("question").textContent = "Could not load questions.";
@@ -344,10 +360,8 @@ async function beginQuizFromUrl(url, subjectLabel, chapterTitle){
     return;
   }
 
-  // Shuffle questions
   shuffle(questions);
 
-  // Prepare each question with shuffled options array and preserved correct key
   questions = questions.map(q => {
     const entries = Object.entries(q.options || {}).map(([key,text]) => ({key, text}));
     shuffle(entries);
@@ -367,8 +381,8 @@ function renderQuestion(){
   q._optionsArr.forEach(opt=>{
     const div = document.createElement("div");
     div.className = "option";
-    div.textContent = opt.text;   // no A/B/C labels, only text
-    div.onclick = () => choose(opt.key, div); // compare by original key
+    div.textContent = opt.text;
+    div.onclick = () => choose(opt.key, div);
     optionsDiv.appendChild(div);
   });
 
@@ -378,12 +392,10 @@ function renderQuestion(){
 }
 
 function choose(selectedKey, el){
-  // lock
   document.querySelectorAll(".option").forEach(o => o.style.pointerEvents = "none");
   const q = questions[idx];
   const correctKey = q._correctKey;
 
-  // mark styles by comparing keys
   document.querySelectorAll(".option").forEach(o=>{
     const isCorrect = q._optionsArr.find(x => x.text === o.textContent)?.key === correctKey;
     if(isCorrect) o.classList.add("correct");
@@ -567,7 +579,7 @@ function humanAuthError(e){
     case "auth/popup-closed-by-user": return "Google sign-in was closed. Try again.";
     case "auth/email-already-in-use": return "This email/mobile is already registered. Try logging in.";
     case "auth/weak-password": return "Password should be at least 6 characters.";
-    default: return e.message || "Authentication error.";
+    default: return e?.message || "Authentication error.";
   }
 }
 
