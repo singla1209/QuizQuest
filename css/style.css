@@ -84,6 +84,42 @@
     .splitter{margin:12px 0;border-top:1px solid rgba(255,255,255,.15)}
     .tiny{font-size:12px;opacity:.85}
 
+    /* ===== MOBILE HEIGHT FIX ===== */
+    @media (max-width: 480px) {
+      #auth .shell {
+        min-height: 100vh;       /* fill screen height */
+        align-items: flex-start; /* prevent cutting off */
+        padding-top: 12px;
+      }
+
+      #auth .card-auth {
+        max-height: 90vh;        /* never exceed screen height */
+        overflow-y: auto;        /* scroll inside if needed */
+        padding: 8px 16px;       /* reduce vertical padding */
+      }
+
+      #brand img {
+        width: 160px;            /* smaller logo */
+      }
+
+      input, .btn, .google-btn {
+        padding: 8px 12px;       /* reduce input/button height */
+        font-size: 14px;
+      }
+
+      .splitter {
+        margin: 6px 0;           /* tighter dividers */
+      }
+
+      .subtitle {
+        margin: -4px 0 10px;     /* reduce spacing below subtitle */
+      }
+
+      #auth .tiny {
+        margin-bottom: 4px;
+      }
+    }
+
     /* Google button */
     .google-btn{
       width:100%;border:1px solid rgba(255,255,255,.2);border-radius:10px;background:#fff;color:#111;
