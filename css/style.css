@@ -78,7 +78,7 @@
 
     /* AUTH */
     #auth .shell{display:flex;align-items:center;justify-content:center;min-height:80vh;padding:24px;width:100%}
-    #auth .card-auth{width:92%;max-width:360px;background:rgba(255,255,255,.06);border-radius:14px;padding:22px 18px;box-shadow:0 8px 24px rgba(0,0,0,.35);text-align:center}
+    #auth .card-auth{width:92%;max-width:360px;background:rgba(255,255,255,.06);border-radius:14px;padding:0px 18px;box-shadow:0 8px 24px rgba(0,0,0,.35);text-align:center}
     #brand{font-weight:900;font-size:26px;letter-spacing:.3px;margin:6px 0 14px}
     #auth .subtitle{opacity:.9;margin:-6px 0 16px}
     .splitter{margin:12px 0;border-top:1px solid rgba(255,255,255,.15)}
@@ -127,6 +127,32 @@
   left: 10px;
   font-size: 14px;
   color: #fff;  /* White text */
-  padding: 5px 10px;  /* optional, you can remove if not needed */
+  background: rgba(0, 0, 0, 0.5); /* Optional background */
+  padding: 5px 10px;
+  border-radius: 5px;
+}
+.explanation {
+  margin-top: 12px;
+  padding: 10px;
+  background: #f5f5f5;
+  border-left: 4px solid #007bff;
+  font-size: 14px;
+  color: #333;
+}
+#brand {
+  font-size: 28px;   /* this won’t matter anymore since text is replaced by img */
+  font-weight: bold; /* safe to remove if not needed */
+  color: #fff;       /* safe to remove too */
+  text-align: center;
+
+  padding: 0;
+  margin: 0;
+  line-height: 0;    /* very important */
 }
 
+#brand img {
+  display: block;
+  margin: 0 auto;
+  width: 220px;
+  height: auto;
+}
