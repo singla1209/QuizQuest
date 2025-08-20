@@ -1,0 +1,227 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>All Quiz Results</title>
+  <link rel="stylesheet" href="stylesheet.css">
+  <style>
+    body {
+      margin: 0;
+      font-family: Arial, sans-serif;
+      background-color: #2d0159;
+      color: white;
+      text-align: center;
+      padding: 20px;
+    }
+    h1 { margin-bottom: 20px; }
+    table {
+      border-collapse: collapse;
+      width: 100%;
+      margin-bottom: 20px;
+      background: rgba(255, 255, 255, 0.1);
+      border-radius: 10px;
+      overflow: hidden;
+    }
+    th, td {
+      border: 1px solid rgba(255, 255, 255, 0.2);
+      padding: 8px;
+      text-align: left;
+    }
+    th { background-color: #4b0082; color: white; }
+    td { color: white; }
+    .collapsible { 
+      background: #243b55; 
+      color: white; 
+      cursor: pointer; 
+      padding: 10px; 
+      border: none; 
+      text-align: left; 
+      width: 100%; 
+      border-radius: 8px;
+      font-size: 14px;
+      margin-bottom: 5px;
+      transition: background 0.3s;
+    }
+    .active, .collapsible:hover { background-color: #3b2e4f; }
+    .content { 
+      display: none; 
+      overflow: hidden; 
+      padding: 10px; 
+      background: rgba(255, 255, 255, 0.1);
+      color: white; 
+      border-radius: 0 0 8px 8px;
+    }
+    .content table th { background-color: #4b0082; color: white; }
+    .content table td { background-color: rgba(255, 255, 255, 0.05); }
+    .dark-toggle {
+      position: fixed;
+      bottom: 20px;
+      right: 20px;
+      background: orange;
+      color: #2d0159;
+      border: none;
+      padding: 12px;
+      font-size: 18px;
+      border-radius: 50%;
+      cursor: pointer;
+      box-shadow: 0 4px 10px rgba(0,0,0,0.3);
+    }
+    body.dark { background-color: #121212; }
+    body.dark table { background: rgba(255, 255, 255, 0.05); }
+    body.dark .collapsible { background: #1e1e1e; }
+    body.dark .dark-toggle { background: white; color: black; }
+    .donut-wrap { width: 100px; height: 100px; margin: 0 auto; }
+  </style>
+</head>
+<body>
+  <h1>All Quiz Results</h1>
+  <div id="results-container">Loading results...</div>
+  <button class="dark-toggle" onclick="toggleDarkMode()">🌓</button>
+
+  <!-- Firebase v8 SDK -->
+  <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-app.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-firestore.js"></script>
+
+  <script>
+    function toggleDarkMode() {
+      document.body.classList.toggle('dark');
+    }
+
+    function donutSVG(percent, size = 100, color = '#00C49F') {
+      if (percent >= 75) color = '#00C49F';
+      else if (percent >= 50) color = '#FFB020';
+      else color = '#FF5555';
+      const stroke = 10;
+      const r = (size - stroke) / 2;
+      const c = size / 2;
+      const circumference = 2 * Math.PI * r;
+      const offset = circumference * (1 - percent / 100);
+      return `
+        <svg width="${size}" height="${size}" viewBox="0 0 ${size} ${size}">
+          <circle cx="${c}" cy="${c}" r="${r}" fill="none" stroke="rgba(255,255,255,0.15)" stroke-width="${stroke}"></circle>
+          <circle cx="${c}" cy="${c}" r="${r}" fill="none" stroke="${color}" stroke-width="${stroke}"
+            stroke-linecap="round"
+            stroke-dasharray="${circumference}"
+            stroke-dashoffset="${offset}"
+            transform="rotate(-90 ${c} ${c})">
+          </circle>
+          <text x="${c}" y="${c}" fill="#fff" font-size="18" font-weight="700" text-anchor="middle" dominant-baseline="central">
+            ${percent}%
+          </text>
+        </svg>
+      `;
+    }
+
+    var firebaseConfig = {
+      apiKey: "AIzaSyBWTOgHmlJmCtpb2LQ7g3wj_IMsTwyTNDE",
+      authDomain: "quizzy-ea14d.firebaseapp.com",
+      projectId: "quizzy-ea14d",
+      storageBucket: "quizzy-ea14d.appspot.com",
+      messagingSenderId: "452576898646",
+      appId: "1:452576898646:web:9fa8dbc2e106bcce8615f7",
+      measurementId: "G-VKNVF4YZCB"
+    };
+    firebase.initializeApp(firebaseConfig);
+    var db = firebase.firestore();
+
+    const container = document.getElementById("results-container");
+
+    db.collection("quiz_results")
+      .orderBy("date", "desc")
+      .get()
+      .then(snapshot => {
+        if (snapshot.empty) {
+          container.innerHTML = "<p>No results found.</p>";
+          return;
+        }
+        container.innerHTML = "";
+        snapshot.forEach(doc => {
+          const data = doc.data();
+
+          // ✅ Handle Firestore Timestamp OR old string date
+          let dateStr = "";
+          if (data.date && data.date.toDate) {
+            dateStr = data.date.toDate().toLocaleString();
+          } else if (typeof data.date === "string") {
+            dateStr = new Date(data.date).toLocaleString();
+          }
+
+          const total = Number(data.totalQuestions) || 0;
+          const correct = Number(data.correctAnswers) || 0;
+          const incorrect = Number(data.incorrectAnswers) || Math.max(0, total - correct);
+          const score = Number(data.score) || correct;
+          const percent = total ? Math.round((score / total) * 100) : 0;
+
+          const donut = donutSVG(percent, 100);
+
+          const summaryTable = `
+            <table>
+              <tr>
+                <th>Name</th>
+                <td>${data.name || ""}</td>
+                <td rowspan="5" style="width:160px; text-align:center; vertical-align:middle;">
+                  <div class="donut-wrap">${donut}</div>
+                  <p style="margin:6px 0 0;font-weight:bold;">${score} / ${total}</p>
+                </td>
+              </tr>
+              <tr><th>Subject</th><td>${data.subject || "N/A"}</td></tr>
+              <tr><th>Correct</th><td>${correct}</td></tr>
+              <tr><th>Incorrect</th><td>${incorrect}</td></tr>
+              <tr><th>Date</th><td>${dateStr}</td></tr>
+            </table>
+          `;
+
+          let questionRows = "";
+          if (Array.isArray(data.responses)) {
+            data.responses.forEach((q, i) => {
+              questionRows += `
+                <tr>
+                  <td>${i + 1}</td>
+                  <td>${q.question || ""}</td>
+                  <td>${q.selected || ""}</td>
+                  <td>${q.correct || ""}</td>
+                </tr>
+              `;
+            });
+          }
+
+          const questionsTable = `
+            <table>
+              <thead>
+                <tr><th>#</th><th>Question</th><th>Your Answer</th><th>Correct Answer</th></tr>
+              </thead>
+              <tbody>${questionRows}</tbody>
+            </table>
+          `;
+
+          const block = document.createElement("div");
+          block.innerHTML = `
+            ${summaryTable}
+            <button class="collapsible">Show Questions</button>
+            <div class="content">${questionsTable}</div>
+          `;
+          container.appendChild(block);
+        });
+
+        document.querySelectorAll(".collapsible").forEach(btn => {
+          btn.addEventListener("click", function() {
+            this.classList.toggle("active");
+            const content = this.nextElementSibling;
+            if (content.style.display === "block") {
+              content.style.display = "none";
+              this.textContent = "Show Questions";
+            } else {
+              content.style.display = "block";
+              this.textContent = "Hide Questions";
+            }
+          });
+        });
+      })
+      .catch(err => {
+        console.error("Error loading results:", err);
+        container.innerHTML = "<p>Error loading results.</p>";
+      });
+  </script>
+</body>
+</html>
