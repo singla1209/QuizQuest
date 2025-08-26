@@ -74,17 +74,16 @@ const CHAPTER_TITLES = {
     2: "Acids, Bases and Salts",
     3: "Metals and Non-metals",
     4: "Carbon and its Compounds",
-    6: "Life Processes",
-    7: "Control and Coordination",
-    8: "How do Organisms Reproduce?",
-    9: "Heredity and Evolution",
-    10: "Light – Reflection and Refraction",
-    11: "The Human Eye and the Colourful World",
-    12: "Electricity",
-    13: "Magnetic Effects of Electric Current",
-    14: "Sources of Energy",
-    15: "Our Environment",
-    16: "Management of Natural Resources"
+    5: "Life Processes",
+    6: "Control and Coordination",
+    7: "How do Organisms Reproduce?",
+    8: "Heredity and Evolution",
+    9: "Light – Reflection and Refraction",
+    10: "The Human Eye and the Colourful World",
+    11: "Electricity",
+    12: "Magnetic Effects of Electric Current",
+    13: "Our Environment (or Natural Resources) – not assessed in board exam; for reading/internal use only"
+  
   },
   math: {
     1: "Real Numbers",
@@ -774,4 +773,5 @@ $("play-again-btn").onclick = () => {
   $("celebrate-overlay").style.display = "none";
   show("subjects");
 };
+
 
