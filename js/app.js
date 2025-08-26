@@ -74,7 +74,6 @@ const CHAPTER_TITLES = {
     2: "Acids, Bases and Salts",
     3: "Metals and Non-metals",
     4: "Carbon and its Compounds",
-    5: "Periodic Classification of Elements",
     6: "Life Processes",
     7: "Control and Coordination",
     8: "How do Organisms Reproduce?",
@@ -775,3 +774,4 @@ $("play-again-btn").onclick = () => {
   $("celebrate-overlay").style.display = "none";
   show("subjects");
 };
+
