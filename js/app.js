@@ -96,11 +96,10 @@ const CHAPTER_TITLES = {
     8: "Introduction to Trigonometry",
     9: "Applications of Trigonometry",
     10: "Circles",
-    11: "Constructions",
-    12: "Areas Related to Circles",
-    13: "Surface Areas and Volumes",
-    14: "Statistics",
-    15: "Probability"
+    11: "Areas Related to Circles",
+    12: "Surface Areas and Volumes",
+    13: "Statistics",
+    14: "Probability"
   }
 };
 
@@ -773,5 +772,6 @@ $("play-again-btn").onclick = () => {
   $("celebrate-overlay").style.display = "none";
   show("subjects");
 };
+
 
 
