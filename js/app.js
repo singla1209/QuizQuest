@@ -265,27 +265,16 @@ $("logout-2").onclick = () => signOut(auth).catch(e=>console.error("Logout error
 
 onAuthStateChanged(auth, async (user) => {
   if(user){
-    // --- TEMP: check custom claims ---
-    const idTokenResult = await user.getIdTokenResult(true); // forces refresh
-    console.log("ID token custom claims:", idTokenResult.claims);
-    // -------------------------------
-
-    dbg("onAuthStateChanged → logged in as:", user.email, user.uid);
     userId = user.uid;
     userName = user.displayName || "";
-    if(!userName){
-      try {
-        const snap = await getDoc(doc(db,"users",user.uid));
-        userName = (snap.exists() && snap.data().name) ? snap.data().name : (user.email || "User");
-      } catch(e){
-        userName = user.email || "User";
-      }
-    }
+
+    const token = await user.getIdTokenResult();
+    const isAdmin = !!token.claims.admin;
+
     $("hello").textContent = `Hi ${userName}!`;
     show("subjects");
-    fetchLastFive();
-  }else{
-    dbg("onAuthStateChanged → no user");
+    fetchLastFive(isAdmin);
+  } else {
     userId = null;
     $("login-pass").value = "";
     $("signup-pass").value = "";
@@ -787,6 +776,7 @@ $("play-again-btn").onclick = () => {
   $("celebrate-overlay").style.display = "none";
   show("subjects");
 };
+
 
 
 
