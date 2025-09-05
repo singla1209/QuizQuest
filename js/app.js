@@ -471,73 +471,69 @@ async function finishQuiz(){
 }
 
 /* ---------- Last 5 results (only logged-in user's) ---------- */
-async function fetchLastFive(){
+async function fetchLastFive(isAdmin = false) {
   const body = $("last5-body");
-  if(!auth.currentUser){ 
-    body.innerHTML = `<tr><td class="muted" colspan="6">Please log in to see results.</td></tr>`; 
-    return; 
+  if (!auth.currentUser) {
+    body.innerHTML = `<tr><td class="muted" colspan="6">Please log in to see results.</td></tr>`;
+    return;
   }
 
   body.innerHTML = `<tr><td class="muted" colspan="6">Loading…</td></tr>`;
-  try{
-    const snap = await getDocs(query(
-      collection(db, "quiz_results"),
-      orderBy("date","desc"),
-      limit(50)
-    ));
+
+  try {
+    let q = query(collection(db, "quiz_results"), orderBy("date", "desc"), limit(50));
+    const snap = await getDocs(q);
 
     const current = auth.currentUser;
-    const email = current?.email || null;
-    console.log("[DEBUG] Current user:", current.uid, email, current.displayName);
+    const userUid = current.uid;
 
-    const list = [];
-    snap.forEach(docSnap=>{
+    const results = [];
+    snap.forEach(docSnap => {
       const d = docSnap.data();
-      console.log("[DEBUG] Checking result:", d.userId, d.userEmail, d.name, "vs current:", current.uid, email, userName);
-
-      const match =
-        (d.userId && current.uid && d.userId === current.uid) ||
-        (d.userEmail && email && d.userEmail === email) ||
-        (d.name && userName && String(d.name).trim().toLowerCase() === String(userName).trim().toLowerCase());
-
-      console.log("[DEBUG] Match:", match);
-
-      if(match) list.push(d);
+      if (isAdmin || d.userId === userUid) { // Admin sees all, normal users only their own
+        results.push(d);
+      }
     });
 
-    if(!list.length){
+    if (!results.length) {
       body.innerHTML = `<tr><td class="muted" colspan="6">No results yet. Finish a quiz to see it here.</td></tr>`;
       return;
     }
 
-    list.sort((a,b)=> toMillis(b.date) - toMillis(a.date));
-    const top5 = list.slice(0,5);
+    // Sort by date descending
+    results.sort((a, b) => toMillis(b.date) - toMillis(a.date));
+
+    // Take only last 5
+    const top5 = results.slice(0, 5);
 
     body.innerHTML = "";
-    top5.forEach(d=>{
+    top5.forEach(d => {
       const dt = d.date?.toDate ? d.date.toDate() : (d.date ? new Date(d.date) : null);
       const dtTxt = dt ? dt.toLocaleString() : "";
-      const total = Number(d.totalQuestions)||0;
-      const corr  = Number(d.correctAnswers)||0;
-      const inc   = Number(d.incorrectAnswers) || Math.max(0,total-corr);
-      const secs  = Number(d.timeTakenSec)||0;
+      const total = Number(d.totalQuestions) || 0;
+      const corr = Number(d.correctAnswers) || 0;
+      const inc = Number(d.incorrectAnswers) || Math.max(0, total - corr);
+      const secs = Number(d.timeTakenSec) || 0;
+
       const tr = document.createElement("tr");
       tr.innerHTML = `
         <td>${dtTxt}</td>
-        <td>${d.subject||"N/A"}</td>
-        <td>${d.name||""}</td>
+        <td>${d.subject || "N/A"}</td>
+        <td>${d.name || ""}</td>
         <td>${corr}</td>
         <td>${inc}</td>
         <td>${secsToText(secs)}</td>
       `;
-      tr.onclick = ()=> openModalForResult(d);
+      tr.onclick = () => openModalForResult(d);
       body.appendChild(tr);
     });
-  }catch(err){
+
+  } catch (err) {
     console.error(err);
     body.innerHTML = `<tr><td class="muted" colspan="6">Couldn't load results.</td></tr>`;
   }
 }
+
 
 
 /* ---------- Modal helpers ---------- */
@@ -790,6 +786,7 @@ $("play-again-btn").onclick = () => {
   $("celebrate-overlay").style.display = "none";
   show("subjects");
 };
+
 
 
 
