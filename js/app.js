@@ -265,6 +265,11 @@ $("logout-2").onclick = () => signOut(auth).catch(e=>console.error("Logout error
 
 onAuthStateChanged(auth, async (user) => {
   if(user){
+    // --- TEMP: check custom claims ---
+    const idTokenResult = await user.getIdTokenResult(true); // forces refresh
+    console.log("ID token custom claims:", idTokenResult.claims);
+    // -------------------------------
+
     dbg("onAuthStateChanged → logged in as:", user.email, user.uid);
     userId = user.uid;
     userName = user.displayName || "";
@@ -287,6 +292,7 @@ onAuthStateChanged(auth, async (user) => {
     show("auth");
   }
 });
+
 
 /* ---------- Quiz + Dynamic Chapters ---------- */
 async function startSubject(s){
@@ -772,6 +778,7 @@ $("play-again-btn").onclick = () => {
   $("celebrate-overlay").style.display = "none";
   show("subjects");
 };
+
 
 
 
