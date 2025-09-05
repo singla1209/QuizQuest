@@ -473,7 +473,11 @@ async function finishQuiz(){
 /* ---------- Last 5 results (only logged-in user's) ---------- */
 async function fetchLastFive(){
   const body = $("last5-body");
-  if(!auth.currentUser){ body.innerHTML = `<tr><td class="muted" colspan="6">Please log in to see results.</td></tr>`; return; }
+  if(!auth.currentUser){ 
+    body.innerHTML = `<tr><td class="muted" colspan="6">Please log in to see results.</td></tr>`; 
+    return; 
+  }
+
   body.innerHTML = `<tr><td class="muted" colspan="6">Loading…</td></tr>`;
   try{
     const snap = await getDocs(query(
@@ -484,13 +488,20 @@ async function fetchLastFive(){
 
     const current = auth.currentUser;
     const email = current?.email || null;
+    console.log("[DEBUG] Current user:", current.uid, email, current.displayName);
+
     const list = [];
     snap.forEach(docSnap=>{
       const d = docSnap.data();
+      console.log("[DEBUG] Checking result:", d.userId, d.userEmail, d.name, "vs current:", current.uid, email, userName);
+
       const match =
-        (d.userId && userId && d.userId === userId) ||
+        (d.userId && current.uid && d.userId === current.uid) ||
         (d.userEmail && email && d.userEmail === email) ||
         (d.name && userName && String(d.name).trim().toLowerCase() === String(userName).trim().toLowerCase());
+
+      console.log("[DEBUG] Match:", match);
+
       if(match) list.push(d);
     });
 
@@ -527,6 +538,7 @@ async function fetchLastFive(){
     body.innerHTML = `<tr><td class="muted" colspan="6">Couldn't load results.</td></tr>`;
   }
 }
+
 
 /* ---------- Modal helpers ---------- */
 function openModalForResult(data){
@@ -778,6 +790,7 @@ $("play-again-btn").onclick = () => {
   $("celebrate-overlay").style.display = "none";
   show("subjects");
 };
+
 
 
 
