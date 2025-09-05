@@ -13,13 +13,13 @@ import {
 
 /* ---------- Config (your existing project) ---------- */
 const firebaseConfig = {
-  apiKey: "AIzaSyBWTOgHmlJmCtpb2LQ7g3wj_IMsTwyTNDE",
-  authDomain: "quizzy-ea14d.firebaseapp.com",
-  projectId: "quizzy-ea14d",
-  storageBucket: "quizzy-ea14d.appspot.com",
-  messagingSenderId: "452576898646",
-  appId: "1:452576898646:web:9fa8dbc2e106bcce8615f7",
-  measurementId: "G-VKNVF4YZCB"
+  apiKey: "AIzaSyCv6HoYQQtZ7h-voQeygYWBbYiSGDAAVkg",
+  authDomain: "quizquest1209.firebaseapp.com",
+  projectId: "quizquest1209",
+  storageBucket: "quizquest1209.firebasestorage.app",
+  messagingSenderId: "101442669984",
+  appId: "1:101442669984:web:7bab4eee919c33bd0ae8c5",
+  measurementId: "G-2FDGTW76CM"
 };
 
 const app  = initializeApp(firebaseConfig);
@@ -772,6 +772,7 @@ $("play-again-btn").onclick = () => {
   $("celebrate-overlay").style.display = "none";
   show("subjects");
 };
+
 
 
 
