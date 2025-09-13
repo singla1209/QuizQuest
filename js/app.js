@@ -1,3 +1,4 @@
+
 /* ---------- Firebase SDK (v12) ---------- */
 import { initializeApp } from "https://www.gstatic.com/firebasejs/12.1.0/firebase-app.js";
 import {
@@ -8,7 +9,7 @@ import {
 } from "https://www.gstatic.com/firebasejs/12.1.0/firebase-auth.js";
 import {
   getFirestore, doc, setDoc, getDoc,
-  collection, addDoc, serverTimestamp, query, orderBy, limit, getDocs
+  collection, addDoc, serverTimestamp, query, orderBy, limit, getDocs,	where
 } from "https://www.gstatic.com/firebasejs/12.1.0/firebase-firestore.js";
 
 /* ---------- Config (your existing project) ---------- */
@@ -265,22 +266,29 @@ $("logout-2").onclick = () => signOut(auth).catch(e=>console.error("Logout error
 
 onAuthStateChanged(auth, async (user) => {
   if(user){
+    dbg("onAuthStateChanged → logged in as:", user.email, user.uid);
     userId = user.uid;
     userName = user.displayName || "";
-
-    const token = await user.getIdTokenResult();
-    const isAdmin = !!token.claims.admin;
-
+    if(!userName){
+      try {
+        const snap = await getDoc(doc(db,"users",user.uid));
+        userName = (snap.exists() && snap.data().name) ? snap.data().name : (user.email || "User");
+      } catch(e){
+        userName = user.email || "User";
+      }
+    }
     $("hello").textContent = `Hi ${userName}!`;
     show("subjects");
-    fetchLastFive(isAdmin);
-  } else {
+    fetchLastFive();
+  }else{
+    dbg("onAuthStateChanged → no user");
     userId = null;
     $("login-pass").value = "";
     $("signup-pass").value = "";
     show("auth");
   }
 });
+
 
 
 /* ---------- Quiz + Dynamic Chapters ---------- */
@@ -460,68 +468,91 @@ async function finishQuiz(){
 }
 
 /* ---------- Last 5 results (only logged-in user's) ---------- */
-async function fetchLastFive(isAdmin = false){
+
+
+
+/* new update of fetch last five result */
+
+async function fetchLastFive() {
   const body = $("last5-body");
-  if(!auth.currentUser){ 
-    body.innerHTML = `<tr><td class="muted" colspan="6">Please log in to see results.</td></tr>`; 
-    return; 
+  const current = auth.currentUser;
+
+  if (!current) {
+    body.innerHTML = `<tr><td class="muted" colspan="6">Please log in to see results.</td></tr>`;
+    return;
   }
-  
+
   body.innerHTML = `<tr><td class="muted" colspan="6">Loading…</td></tr>`;
-  
-  try{
-    const snap = await getDocs(query(
-      collection(db, "quiz_results"),
-      orderBy("date","desc"),
-      limit(50)
-    ));
 
-    const current = auth.currentUser;
-    const list = [];
+  try {
+    // 🔹 Check admin claim
+    const idTokenResult = await current.getIdTokenResult(true);
+    const isAdmin = !!idTokenResult.claims.admin;
 
-    snap.forEach(docSnap => {
-      const d = docSnap.data();
-      if(isAdmin){
-        list.push(d);  // admin sees all results
-      } else if(d.userId === current.uid){
-        list.push(d);  // normal user sees only their results
-      }
-    });
+    let q;
+    if (isAdmin) {
+      // Admin → can fetch all results
+      q = query(
+        collection(db, "quiz_results"),
+        orderBy("date", "desc"),
+        limit(50)
+      );
+    } else {
+      // Normal user → only their own results
+      q = query(
+        collection(db, "quiz_results"),
+        where("userId", "==", current.uid),
+        orderBy("date", "desc"),
+        limit(50)
+      );
+    }
 
-    if(!list.length){
+    const snap = await getDocs(q);
+
+    // Build list of results
+    const list = snap.docs.map(doc => doc.data());
+
+    if (!list.length) {
       body.innerHTML = `<tr><td class="muted" colspan="6">No results yet. Finish a quiz to see it here.</td></tr>`;
       return;
     }
 
-    const top5 = list.slice(0,5); // last 5 results
-    body.innerHTML = "";
+    // Sort + take top 5
+    list.sort((a, b) => toMillis(b.date) - toMillis(a.date));
+    const top5 = list.slice(0, 5);
 
+    body.innerHTML = "";
     top5.forEach(d => {
       const dt = d.date?.toDate ? d.date.toDate() : (d.date ? new Date(d.date) : null);
       const dtTxt = dt ? dt.toLocaleString() : "";
-      const total = Number(d.totalQuestions)||0;
-      const corr  = Number(d.correctAnswers)||0;
-      const inc   = Number(d.incorrectAnswers) || Math.max(0,total-corr);
-      const secs  = Number(d.timeTakenSec)||0;
+      const total = Number(d.totalQuestions) || 0;
+      const corr  = Number(d.correctAnswers) || 0;
+      const inc   = Number(d.incorrectAnswers) || Math.max(0, total - corr);
+      const secs  = Number(d.timeTakenSec) || 0;
 
       const tr = document.createElement("tr");
       tr.innerHTML = `
         <td>${dtTxt}</td>
-        <td>${d.subject||"N/A"}</td>
-        <td>${d.name||""}</td>
+        <td>${d.subject || "N/A"}</td>
+        <td>${d.name || ""}</td>
         <td>${corr}</td>
         <td>${inc}</td>
         <td>${secsToText(secs)}</td>
       `;
-      tr.onclick = ()=> openModalForResult(d);
+      tr.onclick = () => openModalForResult(d);
       body.appendChild(tr);
     });
 
-  } catch(err){
+  } catch (err) {
     console.error(err);
     body.innerHTML = `<tr><td class="muted" colspan="6">Couldn't load results.</td></tr>`;
   }
 }
+
+
+/* end here fetch last five result function */
+
+
 
 
 
@@ -776,11 +807,6 @@ $("play-again-btn").onclick = () => {
   $("celebrate-overlay").style.display = "none";
   show("subjects");
 };
-
-
-
-
-
 
 
 
