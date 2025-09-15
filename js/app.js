@@ -9,7 +9,7 @@ import {
 } from "https://www.gstatic.com/firebasejs/12.1.0/firebase-auth.js";
 import {
   getFirestore, doc, setDoc, getDoc,
-  collection, addDoc, serverTimestamp, query, orderBy, limit, getDocs,	where
+  collection, addDoc, serverTimestamp, query, orderBy, limit, getDocs,	where, deleteDoc
 } from "https://www.gstatic.com/firebasejs/12.1.0/firebase-firestore.js";
 
 /* ---------- Config (your existing project) ---------- */
@@ -470,8 +470,7 @@ async function finishQuiz(){
 /* ---------- Last 5 results (only logged-in user's) ---------- */
 
 
-
-/* new update of fetch last five result */
+/* second update of fetch last five result and show delete button in admin only */
 
 async function fetchLastFive() {
   const body = $("last5-body");
@@ -489,9 +488,23 @@ async function fetchLastFive() {
     const idTokenResult = await current.getIdTokenResult(true);
     const isAdmin = !!idTokenResult.claims.admin;
 
+    // 🔹 Handle table header for delete column
+    const headerRow = document.getElementById("results-header");
+    let deleteHeader = document.getElementById("delete-header");
+    if (isAdmin) {
+      if (!deleteHeader) {
+        deleteHeader = document.createElement("th");
+        deleteHeader.id = "delete-header";
+        deleteHeader.textContent = "Delete";
+        headerRow.appendChild(deleteHeader);
+      }
+    } else {
+      if (deleteHeader) deleteHeader.remove();
+    }
+
     let q;
     if (isAdmin) {
-      // Admin → can fetch all results
+      // Admin → fetch all results
       q = query(
         collection(db, "quiz_results"),
         orderBy("date", "desc"),
@@ -509,11 +522,11 @@ async function fetchLastFive() {
 
     const snap = await getDocs(q);
 
-    // Build list of results
-    const list = snap.docs.map(doc => doc.data());
+    // Build list of results with doc.id included
+    const list = snap.docs.map(doc => ({ id: doc.id, ...doc.data() }));
 
     if (!list.length) {
-      body.innerHTML = `<tr><td class="muted" colspan="6">No results yet. Finish a quiz to see it here.</td></tr>`;
+      body.innerHTML = `<tr><td class="muted" colspan="${isAdmin ? 7 : 6}">No results yet. Finish a quiz to see it here.</td></tr>`;
       return;
     }
 
@@ -538,10 +551,31 @@ async function fetchLastFive() {
         <td>${corr}</td>
         <td>${inc}</td>
         <td>${secsToText(secs)}</td>
+        ${isAdmin ? `<td><button class="deleteBtn" data-id="${d.id}"><img src="https://img.icons8.com/ios-glyphs/30/000000/trash--v1.png" alt="Delete" style="width:20px;height:20px;cursor:pointer;" /></button></td>` : ""}
       `;
       tr.onclick = () => openModalForResult(d);
       body.appendChild(tr);
     });
+
+    // Attach delete handlers (only for admin)
+    if (isAdmin) {
+      document.querySelectorAll(".deleteBtn").forEach(btn => {
+        btn.addEventListener("click", async (e) => {
+          e.stopPropagation(); // prevent row click opening modal
+          const id = btn.dataset.id;
+          if (confirm("Are you sure you want to delete this result?")) {
+            try {
+              await deleteDoc(doc(db, "quiz_results", id));
+              alert("Result deleted!");
+              fetchLastFive(); // refresh table
+            } catch (err) {
+              console.error("Delete failed", err);
+              alert("Delete failed: " + err.message);
+            }
+          }
+        });
+      });
+    }
 
   } catch (err) {
     console.error(err);
@@ -550,7 +584,7 @@ async function fetchLastFive() {
 }
 
 
-/* end here fetch last five result function */
+/* end of second update of fetch last five result */
 
 
 
