@@ -63,9 +63,9 @@ const API_BASE = "https://api.github.com/repos/singla1209/QuizQuest/contents/";
 const SUBJECTS = [
   { key:"science", label:"Science",          dynamic:true, path:"MCQ/science/" },
   { key:"math",    label:"Mathematics",      dynamic:true, path:"MCQ/math/" },
-  { key:"eng",     label:"English",          dynamic:true, path:"Data/english/" },
-  { key:"sst",     label:"Social Science",   dynamic:true, path:"Data/sst/" },
-  { key:"cs",      label:"Computer Science", dynamic:true, path:"Data/cs/" }
+  { key:"eng",     label:"English",          dynamic:true, path:"MCQ/english/" },
+  { key:"sst",     label:"Social Science",   dynamic:true, path:"MCQ/sst/" },
+  { key:"cs",      label:"Computer Science", dynamic:true, path:"MCQ/cs/" }
 ];
 
 /* NCERT 2025–26 pretty names (ONLY for science & math) */
@@ -841,6 +841,7 @@ $("play-again-btn").onclick = () => {
   $("celebrate-overlay").style.display = "none";
   show("subjects");
 };
+
 
 
 
