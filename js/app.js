@@ -57,12 +57,12 @@ function msg(text){ $("auth-msg").textContent = text || ""; }
 function dbg(...args){ console.log("[DBG]", ...args); }
 
 /* ---------------- Dynamic config ---------------- */
-const RAW_BASE = "https://raw.githubusercontent.com/singla1209/Quizzy/main/";
-const API_BASE = "https://api.github.com/repos/singla1209/Quizzy/contents/";
+const RAW_BASE = "https://raw.githubusercontent.com/singla1209/QuizQuest/main/";
+const API_BASE = "https://api.github.com/repos/singla1209/QuizQuest/contents/";
 
 const SUBJECTS = [
-  { key:"science", label:"Science",          dynamic:true, path:"Data/science/" },
-  { key:"math",    label:"Mathematics",      dynamic:true, path:"Data/math/" },
+  { key:"science", label:"Science",          dynamic:true, path:"MCQ/science/" },
+  { key:"math",    label:"Mathematics",      dynamic:true, path:"MCQ/math/" },
   { key:"eng",     label:"English",          dynamic:true, path:"Data/english/" },
   { key:"sst",     label:"Social Science",   dynamic:true, path:"Data/sst/" },
   { key:"cs",      label:"Computer Science", dynamic:true, path:"Data/cs/" }
@@ -841,6 +841,7 @@ $("play-again-btn").onclick = () => {
   $("celebrate-overlay").style.display = "none";
   show("subjects");
 };
+
 
 
 
