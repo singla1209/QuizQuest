@@ -8,9 +8,8 @@ import {
   browserLocalPersistence
 } from "https://www.gstatic.com/firebasejs/12.1.0/firebase-auth.js";
 import {
-  getFirestore, doc, setDoc, deleteDoc,
-  collection, addDoc, serverTimestamp,
-  query, where, orderBy, limit, getDocs
+  getFirestore, doc, setDoc, getDoc,
+  collection, addDoc, serverTimestamp, query, orderBy, limit, getDocs,	where, deleteDoc
 } from "https://www.gstatic.com/firebasejs/12.1.0/firebase-firestore.js";
 
 /* ---------- Config (your existing project) ---------- */
@@ -473,7 +472,6 @@ async function finishQuiz(){
 
 /* second update of fetch last five result and show delete button in admin only */
 
-
 async function fetchLastFive() {
   const body = $("last5-body");
   const current = auth.currentUser;
@@ -486,16 +484,15 @@ async function fetchLastFive() {
   body.innerHTML = `<tr><td class="muted" colspan="6">Loading…</td></tr>`;
 
   try {
-    // Refresh token and check admin permission
+    // 🔹 Check admin claim
     const idTokenResult = await current.getIdTokenResult(true);
-    const isAdmin = idTokenResult.claims.admin === true;
+    const isAdmin = !!idTokenResult.claims.admin;
 
-    // Show Delete column only for admin
+    // 🔹 Handle table header for delete column
     const headerRow = document.getElementById("results-header");
     let deleteHeader = document.getElementById("delete-header");
-
     if (isAdmin) {
-      if (headerRow && !deleteHeader) {
+      if (!deleteHeader) {
         deleteHeader = document.createElement("th");
         deleteHeader.id = "delete-header";
         deleteHeader.textContent = "Delete";
@@ -506,19 +503,18 @@ async function fetchLastFive() {
     }
 
     let q;
-
     if (isAdmin) {
-      // Admin can see results from all users
+      // Admin → fetch all results
       q = query(
         collection(db, "quiz_results"),
         orderBy("date", "desc"),
         limit(50)
       );
     } else {
-      // Normal users can see only their own results
+      // Normal user → only their own results
       q = query(
         collection(db, "quiz_results"),
-        where("uid", "==", current.uid),
+        where("userId", "==", current.uid),
         orderBy("date", "desc"),
         limit(50)
       );
@@ -526,88 +522,64 @@ async function fetchLastFive() {
 
     const snap = await getDocs(q);
 
-    const list = snap.docs.map(docSnap => ({
-      id: docSnap.id,
-      ...docSnap.data()
-    }));
+    // Build list of results with doc.id included
+    const list = snap.docs.map(doc => ({ id: doc.id, ...doc.data() }));
 
     if (!list.length) {
       body.innerHTML = `<tr><td class="muted" colspan="${isAdmin ? 7 : 6}">No results yet. Finish a quiz to see it here.</td></tr>`;
       return;
     }
 
-    // Display latest five results
+    // Sort + take top 5
     list.sort((a, b) => toMillis(b.date) - toMillis(a.date));
     const top5 = list.slice(0, 5);
 
     body.innerHTML = "";
-
     top5.forEach(d => {
-      const dt = d.date?.toDate
-        ? d.date.toDate()
-        : (d.date ? new Date(d.date) : null);
-
-      const dtTxt = dt && !isNaN(dt.getTime())
-        ? dt.toLocaleString()
-        : "";
-
-      const corr = Number(d.correctAnswers) || 0;
-      const inc = Number(d.incorrectAnswers) || 0;
-      const secs = Number(d.timeTaken) || 0;
+      const dt = d.date?.toDate ? d.date.toDate() : (d.date ? new Date(d.date) : null);
+      const dtTxt = dt ? dt.toLocaleString() : "";
+      const total = Number(d.totalQuestions) || 0;
+      const corr  = Number(d.correctAnswers) || 0;
+      const inc   = Number(d.incorrectAnswers) || Math.max(0, total - corr);
+      const secs  = Number(d.timeTakenSec) || 0;
 
       const tr = document.createElement("tr");
-
-      const values = [
-        dtTxt,
-        d.subject || "N/A",
-        d.userName || "User",
-        corr,
-        inc,
-        secsToText(secs)
-      ];
-
-      values.forEach(value => {
-        const td = document.createElement("td");
-        td.textContent = String(value);
-        tr.appendChild(td);
-      });
-
-      if (isAdmin) {
-        const td = document.createElement("td");
-        const btn = document.createElement("button");
-        btn.className = "deleteBtn";
-        btn.textContent = "Delete";
-        btn.dataset.id = d.id;
-
-        td.appendChild(btn);
-        tr.appendChild(td);
-
-        btn.addEventListener("click", async (e) => {
-          e.stopPropagation();
-
-          if (!confirm("Are you sure you want to delete this result?")) {
-            return;
-          }
-
-          try {
-            await deleteDoc(doc(db, "quiz_results", d.id));
-            alert("Result deleted!");
-            fetchLastFive();
-          } catch (err) {
-            console.error("Delete failed", err);
-            alert("Delete failed: " + err.message);
-          }
-        });
-      }
-
-      tr.addEventListener("click", () => openModalForResult(d));
+      tr.innerHTML = `
+        <td>${dtTxt}</td>
+        <td>${d.subject || "N/A"}</td>
+        <td>${d.name || ""}</td>
+        <td>${corr}</td>
+        <td>${inc}</td>
+        <td>${secsToText(secs)}</td>
+        ${isAdmin ? `<td><button class="deleteBtn" data-id="${d.id}"><img src="https://img.icons8.com/ios-glyphs/30/000000/trash--v1.png" alt="Delete" style="width:20px;height:20px;cursor:pointer;" /></button></td>` : ""}
+      `;
+      tr.onclick = () => openModalForResult(d);
       body.appendChild(tr);
     });
 
-  } catch (err) {
-    console.error("Error loading results:", err);
+    // Attach delete handlers (only for admin)
+    if (isAdmin) {
+      document.querySelectorAll(".deleteBtn").forEach(btn => {
+        btn.addEventListener("click", async (e) => {
+          e.stopPropagation(); // prevent row click opening modal
+          const id = btn.dataset.id;
+          if (confirm("Are you sure you want to delete this result?")) {
+            try {
+              await deleteDoc(doc(db, "quiz_results", id));
+              alert("Result deleted!");
+              fetchLastFive(); // refresh table
+            } catch (err) {
+              console.error("Delete failed", err);
+              alert("Delete failed: " + err.message);
+            }
+          }
+        });
+      });
+    }
 
-    body.innerHTML = `<tr><td class="muted" colspan="7">Couldn't load results: ${err.message}</td></tr>`;
+  } catch (err) {
+    console.error(err);
+    body.innerHTML = `<tr><td class="muted" colspan="6">Couldn't load results.</td></tr>`;
   }
 }
 
@@ -869,7 +841,6 @@ $("play-again-btn").onclick = () => {
   $("celebrate-overlay").style.display = "none";
   show("subjects");
 };
-
 
 
 
